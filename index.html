@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ReelDrop — Video Downloader</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --card: #1a1a26;
+    --border: #2a2a40; --accent: #ff3c6f; --accent2: #7b5ea7;
+    --text: #f0eeff; --muted: #7a7a9a; --success: #3cffa0; --warning: #ffc93c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(123,94,167,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(123,94,167,0.06) 1px, transparent 1px);
+    background-size: 48px 48px; pointer-events: none; z-index: 0;
+  }
+  .blob { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.18; pointer-events: none; z-index: 0; }
+  .blob1 { width: 500px; height: 500px; background: var(--accent); top: -150px; right: -100px; animation: drift 14s ease-in-out infinite alternate; }
+  .blob2 { width: 400px; height: 400px; background: var(--accent2); bottom: -100px; left: -80px; animation: drift 18s ease-in-out infinite alternate-reverse; }
+  @keyframes drift { from { transform: translate(0,0); } to { transform: translate(30px,30px); } }
+
+  .container { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding: 32px 24px 60px; }
+
+  header { text-align: center; margin-bottom: 28px; }
+  .logo { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .logo-icon { width: 44px; height: 44px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .logo-text { font-size: 28px; font-weight: 800; letter-spacing: -1px; background: linear-gradient(90deg, #fff 30%, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .tagline { color: var(--muted); font-size: 15px; font-family: 'DM Mono', monospace; }
+  .platforms { display: flex; justify-content: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .platform-badge {
+    display: flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 99px;
+    border: 1px solid var(--border); background: var(--surface); font-size: 12px; color: var(--muted);
+    font-family: 'DM Mono', monospace; cursor: pointer; transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent; user-select: none;
+  }
+  .platform-badge:hover { border-color: var(--accent2); color: var(--text); background: rgba(123,94,167,0.15); }
+  .platform-badge:active { transform: scale(0.96); }
+  .platform-badge span { font-size: 14px; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.4); }
+  .input-label { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; display: block; }
+  .input-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  .url-input { flex: 1; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 14px; padding: 14px 18px; outline: none; transition: border-color 0.2s; }
+  .url-input:focus { border-color: var(--accent2); }
+  .url-input::placeholder { color: var(--muted); }
+  .paste-btn { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; color: var(--muted); font-family: 'Syne', sans-serif; font-size: 13px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .paste-btn:hover { border-color: var(--accent2); color: var(--text); }
+
+  .fetch-btn {
+    width: 100%; padding: 16px; border-radius: 14px; border: none;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    color: #fff; font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.02em; transition: opacity 0.2s, transform 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .fetch-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .fetch-btn:active { transform: translateY(0); }
+  .fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .spinner { width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Status */
+  .status { display: none; margin-top: 16px; padding: 13px 16px; border-radius: 12px; font-size: 13px; font-family: 'DM Mono', monospace; }
+  .status.visible { display: flex; align-items: center; gap: 10px; }
+  .status.info  { background: rgba(123,94,167,0.15); border: 1px solid rgba(123,94,167,0.3); color: #c4b5fd; }
+  .status.error { background: rgba(255,60,111,0.12); border: 1px solid rgba(255,60,111,0.3); color: #ff8fa8; }
+
+  /* Result */
+  .result { display: none; margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .result.visible { display: block; animation: up 0.3s ease; }
+  @keyframes up { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+  .result-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; }
+  .thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; background: var(--card); flex-shrink: 0; }
+  .thumb-placeholder { width: 56px; height: 56px; border-radius: 10px; background: var(--card); display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+  .result-title { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+  .result-sub { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--muted); }
+
+  .options { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .opt-label { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+
+  /* iOS tip */
+  .ios-tip { background: rgba(255,201,60,0.08); border: 1px solid rgba(255,201,60,0.22); border-radius: 10px; padding: 11px 15px; font-size: 12px; font-family: 'DM Mono', monospace; color: rgba(255,201,60,0.9); line-height: 1.6; }
+
+  .dl-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 15px 18px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: var(--card); color: var(--text); font-family: 'Syne', sans-serif;
+    font-size: 14px; font-weight: 600; text-decoration: none; transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dl-btn:hover, .dl-btn:active { border-color: var(--accent); background: rgba(255,60,111,0.08); }
+  .dl-left { display: flex; align-items: center; gap: 10px; }
+
+  .badge { padding: 3px 9px; border-radius: 6px; font-size: 11px; font-family: 'DM Mono', monospace; font-weight: 500; }
+  .b-best { background: rgba(255,201,60,0.15); color: var(--warning); border: 1px solid rgba(255,201,60,0.3); }
+  .b-hd   { background: rgba(60,255,160,0.12); color: var(--success); border: 1px solid rgba(60,255,160,0.25); }
+  .b-sd   { background: rgba(123,94,167,0.15); color: #c4b5fd; border: 1px solid rgba(123,94,167,0.3); }
+
+  .notice { margin-top: 28px; padding: 16px 20px; border-radius: 14px; background: rgba(255,201,60,0.07); border: 1px solid rgba(255,201,60,0.2); font-size: 13px; color: rgba(255,201,60,0.85); font-family: 'DM Mono', monospace; text-align: center; line-height: 1.6; }
+  .notice strong { color: var(--warning); }
+
+  .how { margin-top: 28px; text-align: center; }
+  .how-title { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 18px; }
+  .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+  @media (max-width: 480px) { .steps { grid-template-columns: 1fr; } }
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 14px; text-align: center; }
+  .step-num { font-size: 22px; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 6px; }
+  .step-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  footer { text-align: center; margin-top: 50px; font-size: 12px; font-family: 'DM Mono', monospace; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+
+<div class="container">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⬇️</div>
+      <span class="logo-text">ReelDrop</span>
+    </div>
+    <p class="tagline">// Persistence beats talent //</p>
+    <div class="platforms">
+      <div class="platform-badge" onclick="fillExample('https://www.instagram.com/reel/ABC123xyz/')"><span>📸</span> Instagram</div>
+      <div class="platform-badge" onclick="fillExample('https://www.instagram.com/stories/username/123456789/')"><span>🌸</span> Stories</div>
+      <div class="platform-badge" onclick="fillExample('https://www.tiktok.com/@username/video/1234567890')"><span>🎵</span> TikTok</div>
+      <div class="platform-badge" onclick="fillExample('https://www.tiktok.com/@username/story/1234567890')"><span>✨</span> TikTok Story</div>
+    </div>
+  </header>
+
+  <div class="card">
+    <label class="input-label">Paste video URL</label>
+    <div class="input-row">
+      <input type="url" id="urlInput" class="url-input" placeholder="https://www.instagram.com/reel/..." autocomplete="off" spellcheck="false" />
+      <button class="paste-btn" onclick="pasteUrl()">📋 Paste</button>
+    </div>
+    <button class="fetch-btn" id="fetchBtn" onclick="handleFetch()">
+      <span>⬇</span> Get Download Links
+    </button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="result-header">
+      <div class="thumb-placeholder" id="thumbEl">🎬</div>
+      <div>
+        <div class="result-title" id="titleEl">Video</div>
+        <div class="result-sub" id="subEl"></div>
+      </div>
+    </div>
+    <div class="options" id="optionsEl"></div>
+  </div>
+
+  <div class="notice">
+    <strong>I made this just for you my love 💝</strong>
+  </div>
+
+  <div class="how">
+    <div class="how-title">— How It Works —</div>
+    <div class="steps">
+      <div class="step"><div class="step-num">01</div><div class="step-text">Copy the video link from Instagram or TikTok</div></div>
+      <div class="step"><div class="step-num">02</div><div class="step-text">Paste it here and tap Get Download Links</div></div>
+      <div class="step"><div class="step-num">03</div><div class="step-text"><strong>iPhone:</strong> tap link → hold video → Save to Photos<br><strong>Android:</strong> downloads automatically</div></div>
+    </div>
+  </div>
+</div>
+
+<footer>ReelDrop — personal use only &nbsp;·&nbsp; respects platform ToS</footer>
+
+<script>
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  function detectPlatform(url) {
+    if (/instagram\.com\/stories\//i.test(url)) return { name: 'Instagram Story', icon: '🌸' };
+    if (/instagram\.com/i.test(url))            return { name: 'Instagram', icon: '📸' };
+    if (/tiktok\.com\/.*\/story\//i.test(url))  return { name: 'TikTok Story', icon: '✨' };
+    if (/tiktok\.com/i.test(url))               return { name: 'TikTok', icon: '🎵' };
+    return null;
+  }
+
+  function showStatus(type, html) {
+    const el = document.getElementById('status');
+    el.className = 'status visible ' + type;
+    el.innerHTML = html;
+  }
+
+  function hideStatus() {
+    document.getElementById('status').className = 'status';
+  }
+
+  async function pasteUrl() {
+    try {
+      const text = await navigator.clipboard.readText();
+      document.getElementById('urlInput').value = text;
+    } catch {
+      document.getElementById('urlInput').focus();
+    }
+  }
+
+  function fillExample(url) {
+    document.getElementById('urlInput').value = url;
+    document.getElementById('urlInput').select();
+  }
+
+  function badgeClass(label, i) {
+    if (i === 0) return 'b-best';
+    if (/720|1080|hd/i.test(label)) return 'b-hd';
+    return 'b-sd';
+  }
+
+  function renderOptions(options, platform) {
+    const el = document.getElementById('optionsEl');
+
+    const tip = isIOS
+      ? `<div class="ios-tip">📱 <strong>iPhone:</strong> Tap the button → video opens in Safari → press &amp; hold → <strong>Save to Photos</strong></div>`
+      : '';
+
+    const btns = options.map((opt, i) => {
+      const bc = badgeClass(opt.label, i);
+      const label = i === 0 ? (options.length === 1 ? 'Best Quality' : opt.label) : opt.label;
+      return `
+        <a href="${opt.url}" target="_blank" rel="noopener" class="dl-btn" ${!isIOS ? `download="reeldrop_${Date.now()}.${opt.ext}"` : ''}>
+          <div class="dl-left">
+            <span>🎬</span>
+            <span>${label}</span>
+            <span class="badge ${bc}">${i === 0 && options.length > 1 ? 'BEST' : opt.label}</span>
+          </div>
+          <span>${isIOS ? '↗' : '⬇'}</span>
+        </a>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="opt-label">${isIOS ? 'Tap to open & save' : 'Choose quality'}</div>
+      ${tip}
+      ${btns}
+    `;
+  }
+
+  async function handleFetch() {
+    const url = document.getElementById('urlInput').value.trim();
+    const btn = document.getElementById('fetchBtn');
+    const result = document.getElementById('result');
+
+    result.classList.remove('visible');
+    hideStatus();
+
+    if (!url) { showStatus('error', '⚠️ Paste a video URL first.'); return; }
+
+    const platform = detectPlatform(url);
+    if (!platform) { showStatus('error', '❌ Only Instagram & TikTok URLs are supported.'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = `<div class="spinner"></div> Fetching…`;
+    showStatus('info', `<div class="spinner"></div>&nbsp; Getting download links for <strong>${platform.icon} ${platform.name}</strong>…`);
+
+    try {
+      const resp = await fetch(`/api/download?url=${encodeURIComponent(url)}`);
+      const data = await resp.json();
+
+      if (data.error) throw new Error(data.error);
+
+      // Header
+      document.getElementById('titleEl').textContent = data.title || 'Video';
+      document.getElementById('subEl').textContent = `${platform.icon} ${platform.name}`;
+
+      // Thumbnail
+      if (data.thumbnail) {
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.src = data.thumbnail;
+        img.onerror = () => img.replaceWith(document.getElementById('thumbEl'));
+        document.getElementById('thumbEl').replaceWith(img);
+      }
+
+      renderOptions(data.options, platform);
+      result.classList.add('visible');
+      hideStatus();
+
+    } catch (err) {
+      showStatus('error', `❌ ${err.message || 'Could not fetch video. Try again.'}`);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<span>⬇</span> Get Download Links`;
+    }
+  }
+
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleFetch();
+  });
+</script>
+</body>
+</html>
