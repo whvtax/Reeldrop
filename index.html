@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ReelDrop</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --card: #1a1a26;
+    --border: #2a2a40; --accent: #ff3c6f; --accent2: #7b5ea7;
+    --text: #f0eeff; --muted: #7a7a9a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Syne', sans-serif; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; overflow-x: hidden;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(123,94,167,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(123,94,167,0.06) 1px, transparent 1px);
+    background-size: 48px 48px; pointer-events: none; z-index: 0;
+  }
+  .blob { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.18; pointer-events: none; z-index: 0; }
+  .blob1 { width: 500px; height: 500px; background: var(--accent); top: -150px; right: -100px; animation: drift 14s ease-in-out infinite alternate; }
+  .blob2 { width: 400px; height: 400px; background: var(--accent2); bottom: -100px; left: -80px; animation: drift 18s ease-in-out infinite alternate-reverse; }
+  @keyframes drift { from { transform: translate(0,0); } to { transform: translate(30px,30px); } }
+
+  .wrap { position: relative; z-index: 1; width: 100%; max-width: 500px; }
+
+  header { text-align: center; margin-bottom: 32px; }
+  .logo { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .logo-icon { width: 48px; height: 48px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .logo-text { font-size: 32px; font-weight: 800; letter-spacing: -1px; background: linear-gradient(90deg, #fff 30%, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .tagline { color: var(--muted); font-size: 14px; font-family: 'DM Mono', monospace; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+
+  .input-label { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; display: block; }
+
+  .input-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .url-input {
+    flex: 1; background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 14px; color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 14px; padding: 15px 18px; outline: none; transition: border-color 0.2s;
+  }
+  .url-input:focus { border-color: var(--accent2); }
+  .url-input::placeholder { color: var(--muted); }
+
+  .paste-btn {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px;
+    color: var(--muted); font-family: 'Syne', sans-serif; font-size: 13px;
+    padding: 15px 16px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .paste-btn:hover { border-color: var(--accent2); color: var(--text); }
+
+  .go-btn {
+    width: 100%; padding: 18px; border-radius: 16px; border: none;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    color: #fff; font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800;
+    cursor: pointer; letter-spacing: 0.01em; transition: opacity 0.2s, transform 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .go-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .go-btn:active { transform: translateY(0) scale(0.98); }
+
+  .err { display: none; margin-top: 14px; padding: 12px 16px; border-radius: 12px; background: rgba(255,60,111,0.12); border: 1px solid rgba(255,60,111,0.3); color: #ff8fa8; font-size: 13px; font-family: 'DM Mono', monospace; }
+  .err.show { display: block; }
+
+  .notice { margin-top: 24px; text-align: center; font-size: 14px; font-family: 'DM Mono', monospace; color: rgba(255,201,60,0.8); }
+  .notice strong { color: #ffc93c; }
+
+  .how { margin-top: 32px; display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+  @media (max-width: 420px) { .how { grid-template-columns: 1fr; } }
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 12px; text-align: center; }
+  .step-num { font-size: 20px; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 6px; }
+  .step-text { font-size: 11px; color: var(--muted); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⬇️</div>
+      <span class="logo-text">ReelDrop</span>
+    </div>
+    <p class="tagline">// Instagram Downloader //</p>
+  </header>
+
+  <div class="card">
+    <label class="input-label">Paste Instagram URL</label>
+    <div class="input-row">
+      <input
+        type="url" id="urlInput" class="url-input"
+        placeholder="https://www.instagram.com/reel/..."
+        autocomplete="off" spellcheck="false"
+      />
+      <button class="paste-btn" onclick="pasteUrl()">📋 Paste</button>
+    </div>
+    <button class="go-btn" onclick="go()">⬇ Download</button>
+    <div class="err" id="err">⚠️ Please paste an Instagram URL first.</div>
+  </div>
+
+  <div class="notice">
+    <strong>I made this just for you my love 💝</strong>
+  </div>
+
+  <div class="how">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-text">Copy the link from Instagram</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-text">Paste it here and tap Download</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-text">iPhone: hold video → Save to Photos<br>Android: saves automatically</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function pasteUrl() {
+    try {
+      const text = await navigator.clipboard.readText();
+      document.getElementById('urlInput').value = text;
+    } catch {
+      document.getElementById('urlInput').focus();
+    }
+  }
+
+  function go() {
+    const url = document.getElementById('urlInput').value.trim();
+    const err = document.getElementById('err');
+
+    if (!url || !/instagram\.com/i.test(url)) {
+      err.classList.add('show');
+      return;
+    }
+
+    err.classList.remove('show');
+    window.open('https://snapinsta.app/?url=' + encodeURIComponent(url), '_blank');
+  }
+
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') go();
+  });
+</script>
+</body>
+</html>
